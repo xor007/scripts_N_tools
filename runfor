@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+delay=$1
+shift
+cmd='
+use POSIX ":sys_wait_h";
+
+my $TIME_OUT='$delay';
+
+$SIG{CHLD} = sub 
+{
+    while ((my $child = waitpid(-1, WNOHANG)) > 0) 
+    {
+     $s_tatus = $?;
+     print "child is dead, reaping ....";
+     print "status is : $s_tatus \n";
+    }
+  exit 0;
+};
+
+
+my $command="'$@'";
+my $pid = fork();
+die "cannot fork" unless defined $pid;
+if ($pid == 0) 
+{
+        setpgrp;
+       print "this is the child";
+       system($command);
+                   
+       exit 0;
+}
+ else 
+{
+       $children{$pid}=1;
+       print "this is the parent";
+}
+
+sleep $TIME_OUT;
+if (kill -9, getpgrp($pid)) 
+{
+     print "command (pid:$pid) terminated normally.";
+}
+exit 0;
+'
+#echo $(perl -e "$cmd")
+perl -e "$cmd"
