@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+use strict;
+
+my $orig_manifest   = $ARGV[0];
+my $max_depth = $ARGV[1];
+
+sub comps_finder {
+    my ( $manif, $depth ) = @_;
+    
+    open ( FH, $manif ) or die "Cannot open $manif: $!";
+    #my $contents = <FH>;
+    
+    #my @pkgs = split ( /\n/, $contents );
+    while ( <FH> )
+    {
+        my ( $typ, $nam, $ti, $ver ) = split( /\s+/, $_ );
+        $manif = "/opt/cs/components/$typ/$nam/$ver/etc/manifest";
+        print "/opt/cs/components/$typ/$nam/$ver\n";
+        comps_finder ( $manif, $depth+1 )
+            unless ( $depth == $max_depth );
+    }
+}
+
+comps_finder( $orig_manifest, $max_depth );
