@@ -1,24 +1,91 @@
 #!/usr/bin/perl -w
+#call as: ./rescan_includes <manifest_file> <target_component>
+#synopsis 
+#cd /export/devel/router/dev/app/tcapsim/branches/3.0
+#~/rescan_includes manifest tcapsim 2>/dev/null>src/*.includes
 use strict;
 
-my $orig_manifest   = $ARGV[0];
-my $max_depth = $ARGV[1];
+use Data::Dumper;
 
-sub comps_finder {
-    my ( $manif, $depth ) = @_;
-    
-    open ( FH, $manif ) or die "Cannot open $manif: $!";
-    #my $contents = <FH>;
-    
-    #my @pkgs = split ( /\n/, $contents );
-    while ( <FH> )
-    {
-        my ( $typ, $nam, $ti, $ver ) = split( /\s+/, $_ );
-        $manif = "/opt/cs/components/$typ/$nam/$ver/etc/manifest";
-        print "/opt/cs/components/$typ/$nam/$ver\n";
-        comps_finder ( $manif, $depth+1 )
-            unless ( $depth == $max_depth );
-    }
+my $orig_fn = $ARGV[0];
+my $orig_nam = $ARGV[1];
+
+my %visited = ();
+my @to_visit;
+
+sub visit_pkg {
+	my ( $nam, $typ, $ver, $fn ) = @_;
+
+
+	if ( open ( FH, $fn ) )
+	{ 
+
+		#print "visiting $fn \n";
+		my $curr_line = 0;
+		while ( <FH> )
+		{
+			#print "line number : $curr_line \n";
+			$curr_line++;
+			my ( $curr_typ, $curr_nam, $ti, $curr_ver ) = split( /\s+/, $_ );
+			my $curr_fn = `ls /export/devel/components/$curr_typ/$curr_nam/$curr_ver*/etc/manifest|tail -1`;
+			my ( $a, $b, $c, $d, $e, $f, $g, $h ) = split( '/', $curr_fn );
+			$visited{ $nam } = "/export/devel/components/$e/$f/$g/include";
+			if ( defined $visited{ $curr_nam } || $curr_nam eq $nam )
+			{
+				warn "already visited $curr_typ-$curr_nam: $curr_fn \n";
+			}
+			else 
+			{
+				push @to_visit,
+				{ 
+						nam => $curr_nam,
+						typ => $curr_typ, 
+						ver => $curr_ver,
+						fn  => $curr_fn
+				};
+			}
+
+		}
+
+		close FH;
+	} else 
+	{
+		warn "there was a problem opening $fn : $! \n";
+	}
+
+	
 }
 
-comps_finder( $orig_manifest, $max_depth );
+#read parameters
+my ( $orig_typ, $orig_n, $ti, $orig_ver );
+open ( FH, $orig_fn ) or die "Cannot open $orig_fn: $!";
+while ( <FH> )
+{
+	if ( $_ =~/\s+$orig_nam\s+/ )
+	{
+		( $orig_typ, $orig_n, $ti, $orig_ver ) = split( /\s+/, $_ );
+	}
+}
+close FH;
+#my ( $orig_typ, $orig_n, $ti, $orig_ver ) = split( /\s+/, $orig_line );
+
+#push @names, 'Moo';
+push @to_visit,	{ 
+		nam => $orig_nam,
+		typ => $orig_typ, 
+		ver => $orig_ver,
+		fn  => $orig_fn
+	};
+
+warn(Dumper(@to_visit));
+while ( scalar @to_visit != 0 )
+{
+#my $first = shift @names;
+	my $pkg_r = shift @to_visit;
+	visit_pkg( $pkg_r->{'nam'}, $pkg_r->{'typ'}, $pkg_r->{'ver'}, $pkg_r->{'fn'} );
+}
+
+for (values %visited)
+{
+	print "$_\n";
+}
